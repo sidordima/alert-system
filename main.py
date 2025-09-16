@@ -1,4 +1,3 @@
-import requests
 import time
 import logging
 from code.classes import Status, Compare
