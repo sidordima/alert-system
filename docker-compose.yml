@@ -6,5 +6,5 @@ services:
     container_name: alert-system
     volumes:
       - ./config.yml:/app/config.yml:ro
-    command: ["python", "main.py"]
+    command: ["/bin/sh", "-c", "ls -R && python main.py"]
     restart: unless-stopped
