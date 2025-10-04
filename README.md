@@ -1,3 +1,3 @@
 1. rename file config.yml.sample to config.yml
-docker compose up -d
+2. docker compose up -d
 
