@@ -7,3 +7,4 @@ services:
     volumes:
       - ./config.yml:/app/config.yml:ro
     command: ["python", "main.py"]
+    restart: unless-stopped
