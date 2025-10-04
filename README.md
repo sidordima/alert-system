@@ -1,5 +1,3 @@
-Create image
+1. rename file config.yml.sample to config.yml
+docker compose up -d
 
-docker build -t alert-system .
-
-docker run -d --name alert-system alert-system
