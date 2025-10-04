@@ -11,7 +11,7 @@ logging.basicConfig(
 )
 
 try:
-    with open("config.yaml", "r") as f:
+    with open("config.yml", "r") as f:
         config = yaml.safe_load(f)
 except Exception as e:
     raise ValueError(f"Couldn't read config file:{e}")
