@@ -5,7 +5,6 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Копируем файлы проекта
-COPY config.yml .
 COPY main.py .
 COPY code ./code
 
