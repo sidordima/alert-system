@@ -1,4 +1,5 @@
 import time
+import datetime
 import logging
 from code.classes import Status, Compare, SSLcheck, ContainKw
 from code.alert import send_telegram_message
@@ -51,9 +52,11 @@ if __name__ == "__main__":
                 new_result = all(new_succ_check + new_last_status)
                 logging.info(f"Task[{name}]: can check {all(new_succ_check)}, last result: {all(new_last_status)}")
                 if prev_result==False and new_result==True:
-                    send_telegram_message(f"❗{name} Resolved!",tg['token'],tg['chat_id'])
+                    send_telegram_message(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} ✅{name} Resolved!",
+                                          tg['token'],tg['chat_id'])
                 elif prev_result==True and new_result==False:
-                    send_telegram_message(f"✅{name} Alert!",tg['token'],tg['chat_id'])
+                    send_telegram_message(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}❗{name} Alert!",
+                                          tg['token'],tg['chat_id'])
                 else:
                     pass
                 next_check[name] = now + task["check_interval"]
