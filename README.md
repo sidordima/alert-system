@@ -17,3 +17,4 @@ mv config.yml.sample config.yml
 ```bash
 docker compose up -d
 ```
+
