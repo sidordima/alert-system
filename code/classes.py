@@ -3,10 +3,11 @@ import logging
 import requests
 import ssl
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
 
 class Status:
     VALID_HTTP_CODES = (200, 201, 202, 203, 204, 205, 206, 207, 208, 226)
@@ -31,6 +32,7 @@ class Status:
         self.last_status = True if response.status_code in self.code else False
         return self.last_status
 
+
 class Compare:
     """
     mask - example of string, where you need to extract target value
@@ -39,7 +41,7 @@ class Compare:
     """
     regexp_dig = r"\s*(-?\d+(?:\.\d+)?)\s*"
 
-    def __init__(self, url, mask, sign, value, timeout = 5):
+    def __init__(self, url, mask, sign, value, timeout=5):
         self.url = url
         self.sign = sign
         self.value = value
@@ -75,8 +77,9 @@ class Compare:
             logger.error(f"...{self.url[-20:]} have status {response.status_code}. I can't check value")
         return self.last_status
 
+
 class SSLcheck:
-    def __init__(self,url,day_before,timeout=5):
+    def __init__(self, url, day_before, timeout=5):
         self.url = url
         self.timeout = timeout
         self.day_before = day_before
@@ -102,5 +105,4 @@ class SSLcheck:
                 expiry = datetime.strptime(cert['notAfter'], "%b %d %H:%M:%S %Y %Z")
 
         days_left = (expiry - datetime.now(timezone.utc)).days
-        return True if self.day_before<days_left else False
-
+        return True if self.day_before < days_left else False

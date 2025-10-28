@@ -1,5 +1,6 @@
 import time
 import logging
+import datetime
 from code.classes import Status, Compare
 from code.alert import send_telegram_message
 import yaml
@@ -47,16 +48,17 @@ if __name__ == "__main__":
         for task in config["tasks"]:
             name = task["name"]
             if now >= next_check[name]:
-                prev_result = all([x.succ_check for x in task['condition']] + [x.last_status for x in task['condition']])
+                prev_result = all([x.succ_check for x in task['condition']]
+                                  + [x.last_status for x in task['condition']])
                 _check = [x.check() for x in task['condition']]
                 new_succ_check = [x.succ_check for x in task['condition']]
                 new_last_status = [x.last_status for x in task['condition']]
                 new_result = all(new_succ_check + new_last_status)
                 logging.info(f"Task[{name}]: can check {all(new_succ_check)}, last result: {all(new_last_status)}")
-                if prev_result==False and new_result==True:
-                    send_telegram_message(f"{name} Resolved!",tg['token'],tg['chat_id'])
-                elif prev_result==True and new_result==False:
-                    send_telegram_message(f"{name} Alert!",tg['token'],tg['chat_id'])
+                if prev_result is False and new_result is True:
+                    send_telegram_message(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S} ✅{name} Resolved!", tg['token'], tg['chat_id'])
+                elif prev_result is True and new_result is False:
+                    send_telegram_message(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}❗{name} Alert!", tg['token'], tg['chat_id'])
                 else:
                     pass
                 next_check[name] = now + task["check_interval"]
