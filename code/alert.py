@@ -1,6 +1,7 @@
 import requests
 
-def send_tg_msg(message,token,chat_id):
+
+def send_tg_msg(message, token, chat_id):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": chat_id,
