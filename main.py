@@ -1,7 +1,7 @@
 import time
 import datetime
 import logging
-from code.classes import Status, Compare, SSLcheck, ContainKw
+from code.classes import Status, Compare, SSLcheck
 from code.alert import send_telegram_message
 import yaml
 
@@ -32,6 +32,9 @@ def load_tasks(config):
                     task['condition'].append(Status(**cond['Status']))
                 case "Compare":
                     task['condition'].append(Compare(**cond['Compare']))
+                case "SSLcheck":
+                    task['condition'].append(SSLcheck(**cond['SSLcheck']))
+
         del task['condition_true']
     return tasks
 
