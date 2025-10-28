@@ -17,7 +17,7 @@ class Status:
         self.code = status
         self.timeout = timeout
         self.last_status = True
-        self.succ_check = False
+        self.succ_check = True
 
     def check(self):
         try:
@@ -45,7 +45,7 @@ class Compare:
         self.value = value
         self.timeout = timeout
         self.last_status = True
-        self.succ_check = False
+        self.succ_check = True
 
         match = re.search(self.regexp_dig, mask)
         if match:
@@ -81,7 +81,7 @@ class SSLcheck:
         self.timeout = timeout
         self.day_before = day_before
         self.last_status = True
-        self.succ_check = False
+        self.succ_check = True
 
     def check(self):
         try:
@@ -100,7 +100,40 @@ class SSLcheck:
             with context.wrap_socket(sock, server_hostname=target_url) as ssock:
                 cert = ssock.getpeercert()
                 expiry = datetime.strptime(cert['notAfter'], "%b %d %H:%M:%S %Y %Z")
-
-        days_left = (expiry - datetime.now(timezone.utc)).days
+        days_left = (expiry - datetime.now()).days
         return True if self.day_before<days_left else False
 
+class ContainKw:
+    """
+    mask - example of string, where you need to extract target value
+    sign - "<","<=","=",">=',">"
+    value - pivot value
+    """
+
+    def __init__(self, url, value, timeout = 5,inverse = False):
+        self.url = url
+        self.value = value
+        self.timeout = timeout
+        self.inverse = inverse
+        self.last_status = True
+        self.succ_check = True
+
+    def check(self):
+        try:
+            response = requests.get(self.url, timeout=self.timeout)
+        except Exception as e:
+            self.succ_check = False
+            logger.error(f"URL:{self.url} did not work: error - {e}")
+            return False
+
+        if response.ok:
+            if (self.value in response.text) == self.inverse:
+                self.last_status = True
+                self.succ_check = True
+            else:
+                self.last_status = False
+                logger.info(f"Did not find value by mask: {response.text[:60]}")
+                self.succ_check = True
+        else:
+            logger.error(f"...{self.url[-20:]} have status {response.status_code}. I can't check value")
+        return self.last_status
