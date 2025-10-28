@@ -10,29 +10,37 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 
-try:
-    with open("config.yaml", "r") as f:
-        config = yaml.safe_load(f)
-except Exception as e:
-    raise ValueError(f"Couldn't read config file:{e}")
 
-tasks = config['tasks']
-for task in tasks:
-    task['condition'] = []
-    for cond in task['condition_true']:
-        class_mame = next(iter(cond))
-        match class_mame:
-            case "Status":
-                task['condition'].append(Status(**cond['Status']))
-            case "Compare":
-                task['condition'].append(Compare(**cond['Compare']))
-    del task['condition_true']
+def read_config(config_file):
+    try:
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+    except Exception as e:
+        raise ValueError(f"Couldn't read config file:{e}")
+    return config
 
-tg = config['telegram']
+
+def load_tasks(config):
+    tasks = config['tasks']
+    for task in tasks:
+        task['condition'] = []
+        for cond in task['condition_true']:
+            class_mame = next(iter(cond))
+            match class_mame:
+                case "Status":
+                    task['condition'].append(Status(**cond['Status']))
+                case "Compare":
+                    task['condition'].append(Compare(**cond['Compare']))
+        del task['condition_true']
+    return tasks
 
 
 if __name__ == "__main__":
-    # создаем таймеры для каждого сервиса
+    config = read_config("config.yml")
+    tasks = load_tasks(config)
+    tg = config['telegram']
+
+    # create timers for each tasks
     next_check = {task["name"]: 0 for task in config["tasks"]}
     while True:
         now = time.time()
