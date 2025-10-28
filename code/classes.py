@@ -6,6 +6,7 @@ import socket
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,7 +77,7 @@ class Compare:
                 logger.info(f"Did not find value by mask: {resp.text[:60]}")
                 self.succ_check = False
         else:
-            logger.error(f"...{self.url[-20:]} have status {resp.status_code}. I can't check value")
+            logger.error(f"{self.url[-20:]} have status {resp.status_code}. I can't check value")
         return self.last_status
 
 
