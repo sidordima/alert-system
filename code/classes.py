@@ -18,7 +18,7 @@ class Status:
         self.code = status
         self.timeout = timeout
         self.last_status = True
-        self.succ_check = False
+        self.succ_check = True
 
     def check(self):
         try:
@@ -47,7 +47,7 @@ class Compare:
         self.value = value
         self.timeout = timeout
         self.last_status = True
-        self.succ_check = False
+        self.succ_check = True
 
         match = re.search(self.regexp_dig, mask)
         if match:
@@ -84,7 +84,7 @@ class SSLcheck:
         self.timeout = timeout
         self.day_before = day_before
         self.last_status = True
-        self.succ_check = False
+        self.succ_check = True
 
     def check(self):
         try:

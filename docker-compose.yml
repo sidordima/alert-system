@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alert-system
+    environment:
+      - TZ=Asia/Tbilisi
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    command: ["/bin/sh", "-c", "ls -R && python main.py"]
+    restart: unless-stopped
