@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class Status:
     VALID_HTTP_CODES = (200, 201, 202, 203, 204, 205, 206, 207, 208, 226)
+
     def __init__(self, url, status=VALID_HTTP_CODES, timeout=5):
         if not isinstance(status, (list, tuple)):
             self.code = [str(status)]
@@ -55,26 +56,27 @@ class Compare:
         else:
             raise Exception(f"Value(digits) do not find in {mask}")
         split_mask = mask.split(value, 1)
-        self.mask = "".join([split_mask[0].rstrip(), self.regexp_dig, split_mask[1].lstrip()])
+        self.mask = "".join([split_mask[0].rstrip(), self.regexp_dig,
+                             split_mask[1].lstrip()])
 
     def check(self):
         try:
-            response = requests.get(self.url, timeout=self.timeout)
+            resp = requests.get(self.url, timeout=self.timeout)
         except Exception as e:
             self.succ_check = False
             logger.error(f"URL:{self.url} did not work: error - {e}")
             return False
 
-        if response.ok:
-            if match := re.search(self.mask, response.text):
+        if resp.ok:
+            if match := re.search(self.mask, resp.text):
                 extracted_value = match.group(1)
                 self.last_status = eval(f'{extracted_value}{self.sign}{self.value}')
                 self.succ_check = True
             else:
-                logger.info(f"Did not find value by mask: {response.text[:60]}")
+                logger.info(f"Did not find value by mask: {resp.text[:60]}")
                 self.succ_check = False
         else:
-            logger.error(f"...{self.url[-20:]} have status {response.status_code}. I can't check value")
+            logger.error(f"...{self.url[-20:]} have status {resp.status_code}. I can't check value")
         return self.last_status
 
 
@@ -88,7 +90,7 @@ class SSLcheck:
 
     def check(self):
         try:
-            response = requests.get(self.url, timeout=self.timeout)
+            requests.get(self.url, timeout=self.timeout)
         except Exception as e:
             self.succ_check = False
             logger.error(f"URL:{self.url} did not work: error - {e}")
