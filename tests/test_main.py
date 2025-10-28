@@ -1,5 +1,5 @@
 import unittest
-from main import load_tasks, read_config
+from main import read_config
 
 
 class TestLoadFunctions(unittest.TestCase):
