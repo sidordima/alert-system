@@ -6,7 +6,7 @@ from code.alert import send_tg_msg
 import yaml
 
 logging.basicConfig(
-    filename="service_check.log",  # файл лога
+    filename="service_check.log",  # log file
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
