@@ -43,6 +43,7 @@ if __name__ == "__main__":
     # load config from file
     config = read_config("config.yml")
     tasks = load_tasks(config)
+    # get telegram credintails
     tg = config['telegram']
 
     # create timers for each tasks
