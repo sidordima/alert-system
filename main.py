@@ -24,6 +24,7 @@ def read_config(config_file):
 def load_tasks(config):
     tasks = config['tasks']
     # convert task to dictionary
+    # test 1
     for task in tasks:
         task['condition'] = []
         for cond in task['condition_true']:
