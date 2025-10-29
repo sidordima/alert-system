@@ -40,6 +40,7 @@ def load_tasks(config):
 
 
 if __name__ == "__main__":
+    # load config from file
     config = read_config("config.yml")
     tasks = load_tasks(config)
     tg = config['telegram']
