@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Копируем файлы проекта
 COPY main.py .
-COPY code ./code
+COPY app ./code
 
 # Устанавливаем зависимости, если есть requirements.txt
 COPY requirements.txt .

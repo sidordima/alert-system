@@ -1,14 +1,19 @@
 import time
 from datetime import datetime
 import logging
-from code.classes import Status, Compare, SSLcheck
-from code.alert import send_tg_msg
+from app.classes import Status, Compare, SSLcheck
+from app.alert import send_tg_msg
 import yaml
+import httpx
+import asyncio
 
 logging.basicConfig(
-    filename="service_check.log",  # log file
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("service_check.log"),
+        logging.StreamHandler()  # Это выведет логи в терминал
+    ]
 )
 
 
@@ -41,36 +46,128 @@ def load_tasks(config):
     return tasks
 
 
-if __name__ == "__main__":
-    # load config from file
-    config = read_config("config.yml")
-    tasks = load_tasks(config)
-    # get telegram credintails
-    tg = config['telegram']
+def load_tasks(config):
+    classes = {
+        "Status": Status,
+        "Compare": Compare,
+        "SSLcheck": SSLcheck
+    }
 
-    # create timers for each tasks
-    next_check = {task["name"]: 0 for task in config["tasks"]}
-    while True:
-        now = time.time()
-        for task in config["tasks"]:
-            name = task["name"]
-            if now >= next_check[name]:
-                prev_result = all([x.succ_check for x in task['condition']]
-                                  + [x.last_status for x in task['condition']])
-                _check = [x.check() for x in task['condition']]
-                new_succ_check = [x.succ_check for x in task['condition']]
-                new_last_status = [x.last_status for x in task['condition']]
-                new_result = all(new_succ_check + new_last_status)
-                logging.info(f"Task[{name}]: can check {all(new_succ_check)}, "
-                             f"last result: {all(new_last_status)}")
-                if prev_result is False and new_result is True:
-                    send_tg_msg(f"{datetime.now():%Y-%m-%d %H:%M:%S}"
-                                f" ✅{name} Resolved!", tg['token'],
-                                tg['chat_id'])
-                elif prev_result is True and new_result is False:
-                    send_tg_msg(f"{datetime.now():%Y-%m-%d %H:%M:%S}"
-                                f"❗{name} Alert!", tg['token'], tg['chat_id'])
+    for task in config["tasks"]:
+        # Приводим ключ из YAML к тому, что ждет код
+        raw_conditions = task.get("condition_true", [])
+        obj_conditions = []
+
+        for cond in raw_conditions:
+            # cond это например {"Status": {"url": "...", "status": [200]}}
+            class_name = list(cond.keys())[0]
+            params = cond[class_name]
+
+            if class_name in classes:
+                # Создаем экземпляр класса (Status, SSLcheck и т.д.)
+                obj_conditions.append(classes[class_name](**params))
+
+        # Записываем готовые объекты обратно в задачу
+        task['condition'] = obj_conditions
+    return config["tasks"]
+
+
+async def run_monitoring():
+    config = read_config("config.yml")
+    # !!! ОБЯЗАТЕЛЬНО ВЫЗЫВАЕМ ЗАГРУЗКУ ОБЪЕКТОВ !!!
+    tasks_config = load_tasks(config)
+
+    tg = config['telegram']
+    # --- Блок логирования запуска ---
+    start_msg = (
+        f"\n{'=' * 40}\n"
+        f"🚀 Monitoring System Started\n"
+        f"⏰ Time: {datetime.now():%Y-%m-%d %H:%M:%S}\n"
+        f"📊 Tasks loaded: {len(tasks_config)}\n"
+        f"🆔 TG Chat ID: {tg['chat_id']}\n"
+        f"{'=' * 40}"
+    )
+    print(start_msg)  # Вывод в консоль
+    logging.info(start_msg)  # Запись в файл service_check.log
+
+    next_check = {task["name"]: 0 for task in tasks_config}
+
+    async with httpx.AsyncClient() as client:
+        while True:
+            now = time.time()
+            coros_to_run = []
+            task_indices = []
+
+            for idx, task in enumerate(tasks_config):
+                if now >= next_check[task["name"]]:
+                    # Формируем группу проверок для конкретной задачи
+                    check_group = asyncio.gather(*[x.check(client) for x in task['condition']])
+                    coros_to_run.append(check_group)
+                    task_indices.append(idx)
+                    next_check[task["name"]] = now + task["check_interval"]
+
+            if coros_to_run:
+                # Контрольный запрос
+                control_coro = client.get("http://connectivitycheck.gstatic.com/generate_204", timeout=3.0)
+
+                # Запускаем всё разом
+                all_results = await asyncio.gather(*coros_to_run, control_coro, return_exceptions=True)
+
+                control_res = all_results[-1]
+
+                # Проверяем связь: если это Exception или статус ошибки (4xx, 5xx)
+                if isinstance(control_res, Exception):
+                    logging.warning(f"⚠️ Сеть ноды под вопросом (Control Check Error: {control_res})")
+                    vps_is_reachable = False
                 else:
-                    pass
-                next_check[name] = now + task["check_interval"]
-        time.sleep(2)
+                    vps_is_reachable = control_res.is_success
+
+                if not vps_is_reachable:
+                    logging.warning("Monitoring node network issue! Skipping alerts.")
+                else:
+                    for i, task_idx in enumerate(task_indices):
+                        task_obj = tasks_config[task_idx]
+
+                        # 1. Считаем текущий статус
+                        current_group_results = all_results[i]
+                        new_result = False if isinstance(current_group_results, Exception) else all(
+                            current_group_results)
+
+                        # 2. Считаем предыдущий статус
+                        prev_result = all([x.succ_check for x in task_obj['condition']] +
+                                          [x.last_status for x in task_obj['condition']])
+
+
+                        # 3. Если статус изменился на "Resolved" (True)
+                        if prev_result is False and new_result is True:
+                            # Ищем все остальные сервисы, которые СЕЙЧАС лежат
+                            failed_services = [
+                                t["name"] for t in tasks_config
+                                if t["name"] != task_obj["name"] and (
+                                            not all([c.last_status for c in t["condition"]]) or not all(
+                                        [c.succ_check for c in t["condition"]]))
+                            ]
+
+                            # Формируем расширенное сообщение
+                            status_text = f"{datetime.now():%Y-%m-%d %H:%M:%S} ✅ {task_obj['name']} Resolved!"
+                            if failed_services:
+                                status_text += f"\n\nStill down 🔴:\n- " + "\n- ".join(failed_services)
+                            else:
+                                status_text += "\n\nAll systems are green! 🟢"
+
+                            send_tg_msg(status_text, tg['token'], tg['chat_id'])
+
+                        # 4. Если статус изменился на "Alert" (False)
+                        elif prev_result is True and new_result is False:
+                            print("Должны послать мессагу!")
+                            send_tg_msg(f"{datetime.now():%Y-%m-%d %H:%M:%S} ❗ {task_obj['name']} Alert!",
+                                        tg['token'], tg['chat_id'])
+
+            await asyncio.sleep(1)
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(run_monitoring())
+    except KeyboardInterrupt:
+        pass
