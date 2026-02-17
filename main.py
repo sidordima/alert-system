@@ -46,32 +46,6 @@ def load_tasks(config):
     return tasks
 
 
-def load_tasks(config):
-    classes = {
-        "Status": Status,
-        "Compare": Compare,
-        "SSLcheck": SSLcheck
-    }
-
-    for task in config["tasks"]:
-        # Приводим ключ из YAML к тому, что ждет код
-        raw_conditions = task.get("condition_true", [])
-        obj_conditions = []
-
-        for cond in raw_conditions:
-            # cond это например {"Status": {"url": "...", "status": [200]}}
-            class_name = list(cond.keys())[0]
-            params = cond[class_name]
-
-            if class_name in classes:
-                # Создаем экземпляр класса (Status, SSLcheck и т.д.)
-                obj_conditions.append(classes[class_name](**params))
-
-        # Записываем готовые объекты обратно в задачу
-        task['condition'] = obj_conditions
-    return config["tasks"]
-
-
 async def run_monitoring():
     config = read_config("config.yml")
     # !!! ОБЯЗАТЕЛЬНО ВЫЗЫВАЕМ ЗАГРУЗКУ ОБЪЕКТОВ !!!
@@ -97,9 +71,12 @@ async def run_monitoring():
             now = time.time()
             coros_to_run = []
             task_indices = []
+            prev_statuses = {}
 
             for idx, task in enumerate(tasks_config):
                 if now >= next_check[task["name"]]:
+                    # Запоминаем статус ДО проверки
+                    prev_statuses[idx] = all([x.last_status for x in task['condition']])
                     # Формируем группу проверок для конкретной задачи
                     check_group = asyncio.gather(*[x.check(client) for x in task['condition']])
                     coros_to_run.append(check_group)
@@ -117,7 +94,7 @@ async def run_monitoring():
 
                 # Проверяем связь: если это Exception или статус ошибки (4xx, 5xx)
                 if isinstance(control_res, Exception):
-                    logging.warning(f"⚠️ Сеть ноды под вопросом (Control Check Error: {control_res})")
+                    logging.warning(f"⚠️ Сеть монитора под вопросом (Control Check Error: {control_res})")
                     vps_is_reachable = False
                 else:
                     vps_is_reachable = control_res.is_success
@@ -127,17 +104,12 @@ async def run_monitoring():
                 else:
                     for i, task_idx in enumerate(task_indices):
                         task_obj = tasks_config[task_idx]
-
                         # 1. Считаем текущий статус
                         current_group_results = all_results[i]
                         new_result = False if isinstance(current_group_results, Exception) else all(
                             current_group_results)
 
-                        # 2. Считаем предыдущий статус
-                        prev_result = all([x.succ_check for x in task_obj['condition']] +
-                                          [x.last_status for x in task_obj['condition']])
-
-
+                        prev_result = prev_statuses[task_idx]
                         # 3. Если статус изменился на "Resolved" (True)
                         if prev_result is False and new_result is True:
                             # Ищем все остальные сервисы, которые СЕЙЧАС лежат
@@ -163,7 +135,7 @@ async def run_monitoring():
                             send_tg_msg(f"{datetime.now():%Y-%m-%d %H:%M:%S} ❗ {task_obj['name']} Alert!",
                                         tg['token'], tg['chat_id'])
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(3)
 
 
 if __name__ == "__main__":
