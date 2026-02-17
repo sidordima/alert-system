@@ -1,3 +1,4 @@
 PyYAML
 requests[socks]
 pytest
+cryptography>=42.0.0

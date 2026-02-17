@@ -8,7 +8,7 @@ import httpx
 import asyncio
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARN,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler("service_check.log"),
@@ -62,7 +62,7 @@ async def run_monitoring():
         f"{'=' * 40}"
     )
     print(start_msg)  # Вывод в консоль
-    logging.info(start_msg)  # Запись в файл service_check.log
+    #logging.info(start_msg)  # Запись в файл service_check.log
 
     next_check = {task["name"]: 0 for task in tasks_config}
 
@@ -131,7 +131,6 @@ async def run_monitoring():
 
                         # 4. Если статус изменился на "Alert" (False)
                         elif prev_result is True and new_result is False:
-                            print("Должны послать мессагу!")
                             send_tg_msg(f"{datetime.now():%Y-%m-%d %H:%M:%S} ❗ {task_obj['name']} Alert!",
                                         tg['token'], tg['chat_id'])
 

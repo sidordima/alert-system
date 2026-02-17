@@ -56,7 +56,6 @@ class Compare:
     async def check(self, client: httpx.AsyncClient):
         try:
             resp = await client.get(self.url, timeout=self.timeout)
-            print("Код",resp.status_code)
             self.succ_check = True
             self.last_status = True
             if resp.is_success:
@@ -64,7 +63,6 @@ class Compare:
                 if m := re.search(self.mask, resp.text):
                     val = float(m.group(1))
                     self.last_status = self.OPERATORS[self.sign](val, self.value)
-                    print("Статус по оператору",self.last_status)
                     self.succ_check = True
                 else:
                     self.succ_check = False
@@ -112,17 +110,10 @@ class SSLcheck:
 
             # 3. Достаем дату (в новых версиях cryptography используйте not_valid_after_utc)
             expiry = cert.not_valid_after_utc
-            print(expiry)
             writer.close()
             await writer.wait_closed()
-
-
             # 4. Парсим дату (формат в сертификатах стандартный)
-
-
             days_left = (expiry - datetime.now(timezone.utc)).days
-            print(f"Для {target_url} осталось дней: {days_left}")
-
             self.last_status = days_left > self.day_before
             self.succ_check = True
 
